@@ -1,0 +1,13 @@
+# Dependencies (this package has none, but keep pnpm/npm artifacts out)
+node_modules/
+pnpm-lock.yaml
+
+# Build artifacts of the npm pack step
+*.tgz
+
+# Generated at verification time (tools/harness.mjs writes it)
+widget.html
+
+# Verification screenshots of the GUI (large, not part of the docs).
+# The widget renders referenced by the READMEs stay in the repository root.
+shots/

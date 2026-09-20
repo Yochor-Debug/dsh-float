@@ -1,0 +1,14 @@
+# dsh-plugin-balance-float 的 profile 层补丁。
+#
+# 用法（推荐，交给 pnpm 管依赖）：
+#   dsh plugin --profile web add D:\DeepSeek_Workspace\dsh-plugin-balance-float
+# dsh 会把本包写进 profile 的 dependencies，并因为它在 package.json 里声明了
+# dsh.bundle.patch 而自动把本包加入 profile 的 bundles 列表（reconcilePlugins）。
+#
+# 这里的 name 用**裸包名**，与 open-sea-skin、dsh-builtin-browser 等第三方插件一致：
+# 包已装在 profile 的 node_modules 里，由 loader 按包名解析。
+# 早前的做法是在 profile 的 cordis.patch.yml 里写 file:// 绝对路径 —— 那样换机器、
+# 换目录或 DSH 升级后都容易失效，也不是插件包该有的形态。
+- insert:
+    - id: balance-float
+      name: dsh-plugin-balance-float
