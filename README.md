@@ -12,7 +12,9 @@ remaining balance, and gets out of the way.
   widget into every rendered `index.html`, so it is not tied to any session and
   costs no conversation context.
 - **Collapsed** it shows just the balance plus a status dot: green = healthy,
-  amber = low, red = depleted. A small `▼` hints that it can be opened.
+  amber = low, red = depleted. Next to the balance a small badge shows whether the
+  current hour bills at **峰 (peak)** or **谷 (off-peak)** rates. A small `▼` hints
+  that it can be opened.
 - **Click to open** the detail panel: total, granted and topped-up balance, and
   the last refresh time. **Hovering does nothing** — the pointer merely passing
   over the capsule must not pop anything up. Click again (or click elsewhere) to
@@ -75,14 +77,38 @@ The key never appears in any response.
 | `lib/client.js` | Browser half: the widget's DOM/CSS/drag/poll logic (injected inline) |
 | `tools/verify-package.mjs` | Package-level verification (manifest, patch, route, injection, click-only interaction) |
 
-The host re-reads `lib/client.js` on **every index render**, so widget tweaks
-only need a page refresh — no reinstall, no `dsh web` restart.
+The host re-reads `lib/client.js` on **every index render**, so changing the widget
+only needs a page refresh — **provided the widget file the host reads is the one you
+edited.** Installed from GitHub or npm, that is the copy in the profile's store, not
+your working tree, so a change has to be pushed and reinstalled (see below). A
+`link:` install reads your working tree directly, which is what makes local
+iteration a refresh away.
 
 ## Verify
 
 ```powershell
-node tools/verify-package.mjs
+node tools/verify-package.mjs                        # manifest, route, injection
+node tools/verify-tariff.mjs http://127.0.0.1:3931/  # 峰/谷 badge at every boundary
 ```
+
+`verify-tariff.mjs` freezes the page clock with a fake `Date`, forces a repaint, and
+reads the badge out of the closed shadow root through CDP's pierced DOM. Its
+expectations are written from the pricing rule rather than recomputed from the
+widget, so a wrong window fails the test instead of agreeing with itself.
+
+## Peak / off-peak badge
+
+DeepSeek bills off-peak hours at half the peak rate. Per the official pricing page,
+**peak hours are 01:00–04:00 and 06:00–10:00 UTC, Monday to Friday, excluding
+Chinese public holidays**; every other hour is off-peak, weekends and holidays in
+full. In Beijing time that is 09:00–12:00 and 14:00–18:00 on weekdays.
+
+The badge is computed in the browser from UTC, so it is correct whatever the
+machine's timezone is, and it re-evaluates on every 5-second refresh.
+
+**Chinese public holidays are not modelled.** That would mean shipping a calendar
+that goes stale every year, so on a weekday holiday the badge says 峰 while the
+provider bills it as 谷. The badge's tooltip says so.
 
 ## Known limitations
 

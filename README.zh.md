@@ -4,7 +4,8 @@ DSH Web GUI 的 DeepSeek API 余额小浮窗 —— 仿搜狗输入法状态条�
 
 - **打开 DSH（页面加载）时自动出现，关闭页面时随之消失**：浮窗由宿主插件注入到每个
   `index.html`，不依赖会话、不占用对话上下文。
-- 折叠态只显示余额（绿/黄/红圆点表示充足/偏低/不足），并带一个很小的 `▼` 提示可展开。
+- 折叠态只显示余额（绿/黄/红圆点表示充足/偏低/不足），**余额后面还有一个 `峰`/`谷` 徽章**
+  表示当前时段是峰时还是谷时；并带一个很小的 `▼` 提示可展开。
 - **点击展开明细**：总额、赠金、充值、上次刷新时间。**悬停不会弹任何东西**——鼠标划过
   胶囊不产生反应；再点一次收起，点页面其它地方也会收起。
   （早期版本是"悬停即展开"，实测会让人觉得浮窗在跟着鼠标闪，已改为点击触发。）
@@ -84,7 +85,7 @@ dsh plugin --profile web remove dsh-plugin-balance-float
 
 | 改的是 | 怎么生效 |
 | --- | --- |
-| `lib/client.js`（浮窗外观/参数） | 宿主每次渲染 index 都重读该文件 —— **刷新页面即可** |
+| `lib/client.js`（浮窗外观/参数） | 宿主每次渲染 index 都重读该文件 —— **刷新页面即可**，前提是宿主读的那个文件就是你改的那个。**从 GitHub/npm 安装时，宿主读的是 profile 里的安装副本，不是你的工作目录**，所以改动要先 push 再重装；用 `link:` 安装才会直接读工作目录，那才是"改完刷新即见" |
 | `lib/index.js`（宿主逻辑） | Node 按 URL 缓存 ESM，且运行中的进程不会重读 bundles 列表 —— **重启 `dsh web`**（或重装插件后重启） |
 | `package.json` / `cordis.patch.yml` | 同上：bundles 列表只在 boot 时读一次，需要重启 |
 
@@ -96,11 +97,33 @@ patch 文件，**不包括 `package.json`**。所以「装好插件但 GUI 没�
 
 ```powershell
 node tools/verify-package.mjs                 # 插件包独立验证（不需要 DSH 在跑）
+node tools/verify-tariff.mjs http://127.0.0.1:3931/   # 峰/谷 徽章的每个边界（需要 rig）
 node tools/test-credentials.mjs              # 两种 YAML 写法 + 凭证服务分支（回归测试）
 node tools/harness.mjs                       # 路由、缓存、HEAD/POST 语义、真实余额
 node tools/screenshot-server.mjs 3931        # 然后浏览器打开 http://127.0.0.1:3931/?balance-float=open
 node tools/verify-interactions.mjs http://127.0.0.1:3931/   # 需要 rig 在跑
 ```
+
+`verify-tariff.mjs` 用假 `Date` 冻结页面时钟、强制重绘，再通过 CDP 的 pierced DOM 从
+**closed shadow root** 里读出徽章。它的期望值是照着定价规则手写的（不是拿组件自己的
+逻辑算的），所以窗口写错会失败，而不会"自己跟自己一致"。
+
+## 峰/谷 徽章
+
+DeepSeek 对谷时段按峰时价格的 **50%** 计费。据[官方定价页](https://api-docs.deepseek.com/quick_start/pricing)：
+
+> Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC, Monday through Friday,
+> excluding Chinese public holidays. All other hours are off-peak, including
+> weekends and Chinese public holidays in full.
+
+即**峰时段 = 周一至周五的 UTC 01:00–04:00 与 06:00–10:00**（北京时间 09:00–12:00、
+14:00–18:00）；**其余全部为谷**，含周末与节假日全天。徽章在浏览器里按 UTC 计算，所以
+不受本机时区影响，并且每 5 秒刷新时重新判断。
+
+⚠️ **未计入中国法定节假日**：那需要内置一份每年都会过期的日历。所以工作日的节假日会显示
+`峰`，而实际按 `谷` 计费。徽章的悬停提示里写明了这一点。
+
+## 验证（续）
 
 `verify-package.mjs` 的实测输出（它模拟 loader 的方式 import 包入口并挂到桩上下文）：
 
